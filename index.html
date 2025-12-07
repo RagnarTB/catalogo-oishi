@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catálogo Oishi 🐮</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+</head>
+
+<body>
+
+    <div class="hero-section">
+        <div class="hero-modelo">
+            <model-viewer src="scene.gltf" alt="Mascota Oishi en 3D" auto-rotate camera-controls shadow-intensity="1"
+                camera-orbit="45deg 55deg 8m" field-of-view="30deg" style="background-color: transparent;">
+            </model-viewer>
+        </div>
+        <div class="hero-texto">
+            <h1>Catálogo Oishi 🐮</h1>
+            <p class="slogan">¡El sabor que te hace feliz! <br> Haz tu pedido directamente a nuestro WhatsApp.</p>
+        </div>
+    </div>
+
+    <div class="contenedor-catalogo" id="catalogo">
+        <p style="text-align:center; width:100%; color:#999;">Cargando productos...</p>
+    </div>
+
+    <footer>
+        <p>© 2025 Oishi Yogurt. Todos los derechos reservados.</p>
+        <p class="licencia-nota">
+            Arte 3D: <a href="https://sketchfab.com/3d-models/low-poly-cow-df042eca21c946a89b8df54310f28c59"
+                target="_blank">"Low Poly Cow"</a>
+            por <a href="https://sketchfab.com/tsutomu.saito" target="_blank">tsutomu.saito</a>
+            bajo licencia <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank">CC-BY-4.0</a>.
+        </p>
+    </footer>
+
+    <div class="btn-flotante-contenedor" onclick="toggleCarrito()">
+        <button class="btn-flotante-icono">🛍️</button>
+        <span class="badge-cantidad" id="badge-count" style="display: none;">0</span>
+    </div>
+
+    <div class="overlay" id="overlay" onclick="toggleCarrito()"></div>
+
+    <div class="sidebar-carrito" id="sidebar">
+        <div class="sidebar-header">
+            <h3>Tu Canasta 🛒</h3>
+            <button onclick="toggleCarrito()" class="btn-cerrar-sidebar">&times;</button>
+        </div>
+
+        <div class="sidebar-body" id="lista-carrito-items">
+            <div class="carrito-vacio">Tu canasta está vacía 🍃</div>
+        </div>
+
+        <div class="sidebar-footer">
+            <div class="resumen-total">
+                <span>Total a pagar:</span>
+                <span id="sidebar-total">S/ 0.00</span>
+            </div>
+            <button onclick="enviarPedido()" class="btn-whatsapp-final">Enviar Pedido por WhatsApp 📲</button>
+        </div>
+    </div>
+
+    <script>
+        // CONFIGURACIÓN
+        const hojaCalculoURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR74fYnG1pIpcUOnBBJmKvLL7GBq1LweLX7K-y-KVyV9EqnJQeGos8-7Hj5g_KdeS3j2t4K6C11whzH/pub?output=csv";
+        const numeroTia = "51957732651"; // <--- TU NÚMERO AQUÍ
+
+        let carrito = [];
+
+        // 1. Cargar Productos
+        fetch(hojaCalculoURL)
+            .then(res => res.text())
+            .then(texto => {
+                const filas = texto.split('\n').slice(1);
+                const contenedor = document.getElementById('catalogo');
+                contenedor.innerHTML = ""; // Limpiar mensaje de carga
+
+                filas.forEach(fila => {
+                    // Nota: Asegúrate de que tu CSV no tenga comas DENTRO de las descripciones o usa un parser mejor
+                    const [nombre, desc, precioStr, img] = fila.split(',');
+                    const precio = parseFloat(precioStr);
+
+                    if (nombre && !isNaN(precio)) {
+                        const tarjeta = `
+                        <div class="producto">
+                            <img src="${img}" alt="${nombre}" onerror="this.src='https://via.placeholder.com/300?text=Sin+Imagen'">
+                            <div class="info-producto">
+                                <h2>${nombre}</h2>
+                                <p class="descripcion">${desc || ''}</p>
+                                <p class="precio">S/ ${precio.toFixed(2)}</p>
+                            </div>
+                            <div class="acciones">
+                                <button class="btn btn-agregar" onclick="agregar('${nombre}', ${precio})">Añadir +</button>
+                                <button class="btn btn-pedir" onclick="pedirUnico('${nombre}', ${precio})">Pedir Ya 🚀</button>
+                            </div>
+                        </div>
+                    `;
+                        contenedor.innerHTML += tarjeta;
+                    }
+                });
+            })
+            .catch(err => {
+                console.error(err);
+                document.getElementById('catalogo').innerHTML = "<p>Hubo un error cargando el catálogo.</p>";
+            });
+
+        // 2. Lógica del Carrito
+        function agregar(nombre, precio) {
+            const existente = carrito.find(item => item.nombre === nombre);
+            if (existente) {
+                existente.cantidad++;
+            } else {
+                carrito.push({ nombre, precio, cantidad: 1 });
+            }
+            actualizarUI();
+
+            // Abrir el carrito automáticamente al agregar (opcional, buena UX)
+            mostrarSidebar(true);
+        }
+
+        function cambiarCantidad(nombre, cambio) {
+            const item = carrito.find(i => i.nombre === nombre);
+            if (!item) return;
+            item.cantidad += cambio;
+            if (item.cantidad <= 0) {
+                carrito = carrito.filter(i => i.nombre !== nombre);
+            }
+            actualizarUI();
+        }
+
+        // 3. Actualizar UI (Sidebar y Badge)
+        function actualizarUI() {
+            const totalItems = carrito.reduce((sum, i) => sum + i.cantidad, 0);
+            const totalPrecio = carrito.reduce((sum, i) => sum + (i.precio * i.cantidad), 0);
+
+            // Actualizar Badge del botón flotante
+            const badge = document.getElementById('badge-count');
+            if (totalItems > 0) {
+                badge.style.display = 'flex';
+                badge.innerText = totalItems;
+            } else {
+                badge.style.display = 'none';
+            }
+
+            // Actualizar Lista en Sidebar
+            const listaHTML = document.getElementById('lista-carrito-items');
+
+            if (carrito.length === 0) {
+                listaHTML.innerHTML = '<div class="carrito-vacio">Tu canasta está vacía 🍃</div>';
+                document.getElementById('sidebar-total').innerText = "S/ 0.00";
+                return;
+            }
+
+            listaHTML.innerHTML = '';
+            carrito.forEach(item => {
+                listaHTML.innerHTML += `
+                <div class="item-carrito">
+                    <div class="info-item">
+                        <strong>${item.nombre}</strong>
+                        <small>S/ ${item.precio.toFixed(2)} c/u</small>
+                    </div>
+                    <div class="controles-cantidad">
+                        <button onclick="cambiarCantidad('${item.nombre}', -1)">-</button>
+                        <span>${item.cantidad}</span>
+                        <button onclick="cambiarCantidad('${item.nombre}', 1)">+</button>
+                    </div>
+                    <div class="subtotal-item">S/ ${(item.precio * item.cantidad).toFixed(2)}</div>
+                </div>
+            `;
+            });
+
+            document.getElementById('sidebar-total').innerText = `S/ ${totalPrecio.toFixed(2)}`;
+        }
+
+        // 4. Funciones de Interfaz (Mostrar/Ocultar Sidebar)
+        function toggleCarrito() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+
+            // Toggle clase 'active'
+            if (sidebar.classList.contains('active')) {
+                mostrarSidebar(false);
+            } else {
+                mostrarSidebar(true);
+            }
+        }
+
+        function mostrarSidebar(mostrar) {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            if (mostrar) {
+                sidebar.classList.add('active');
+                overlay.classList.add('active');
+            } else {
+                sidebar.classList.remove('active');
+                overlay.classList.remove('active');
+            }
+        }
+
+        function pedirUnico(nombre, precio) {
+            const mensaje = `Hola Oishi, quiero pedir:%0A- 1x ${nombre} (S/ ${precio.toFixed(2)})`;
+            window.open(`https://wa.me/${numeroTia}?text=${mensaje}`, '_blank');
+        }
+
+        function enviarPedido() {
+            if (carrito.length === 0) return alert("Agrega productos primero :)");
+
+            let mensaje = "Hola Oishi, este es mi pedido:%0A%0A";
+            carrito.forEach(item => {
+                mensaje += `- *${item.cantidad}x* ${item.nombre} (S/ ${(item.precio * item.cantidad).toFixed(2)})%0A`;
+            });
+            const total = carrito.reduce((sum, i) => sum + (i.precio * i.cantidad), 0);
+            mensaje += `%0A*TOTAL FINAL: S/ ${total.toFixed(2)}*`;
+            window.open(`https://wa.me/${numeroTia}?text=${mensaje}`, '_blank');
+        }
+    </script>
+</body>
+
+</html>
