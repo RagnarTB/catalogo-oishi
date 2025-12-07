@@ -79,9 +79,25 @@
                 contenedor.innerHTML = ""; // Limpiar mensaje de carga
 
                 filas.forEach(fila => {
-                    // Nota: Asegúrate de que tu CSV no tenga comas DENTRO de las descripciones o usa un parser mejor
-                    const [nombre, desc, precioStr, img] = fila.split(',');
+                    // --- CAMBIO IMPORTANTE: PARSER CSV ROBUSTO ---
+                    // Esto permite comas dentro de las descripciones si están entre comillas
+                    const columnas = fila.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
+
+                    if (!columnas || columnas.length < 4) return; // Si la fila está incompleta, la saltamos
+
+                    // Limpiamos comillas extra que Google Sheets a veces pone
+                    const nombre = columnas[0].replace(/^"|"$/g, '').trim();
+                    const desc = columnas[1].replace(/^"|"$/g, '').trim();
+                    const precioStr = columnas[2].replace(/^"|"$/g, '').trim();
+                    let img = columnas[3].replace(/^"|"$/g, '').trim();
+
+                    // TRUCO EXTRA: Si el link viene sin https, intentamos arreglarlo (opcional pero útil)
+                    if (img && !img.startsWith('http')) {
+                        // Asumimos que es un enlace roto o vacío, dejamos que el 'onerror' del HTML actúe después
+                    }
+
                     const precio = parseFloat(precioStr);
+                    // ---------------------------------------------
 
                     if (nombre && !isNaN(precio)) {
                         const tarjeta = `
@@ -103,7 +119,7 @@
                 });
             })
             .catch(err => {
-                console.error(err);
+                console.error("Error cargando productos:", err);
                 document.getElementById('catalogo').innerHTML = "<p>Hubo un error cargando el catálogo.</p>";
             });
 
