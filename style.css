@@ -83,13 +83,34 @@ h1 {
     box-shadow: 0 15px 30px rgba(216, 27, 96, 0.15);
 }
 
+/* --- EN TU ARCHIVO STYLE.CSS --- */
+/* Busca esto y reemplázalo completo: */
+
+/* Busca la sección .producto img y reemplázala con esto: */
+
 .producto img {
-    width: 100%;
+    /* 1. TAMAÑO MÁS PEQUEÑO */
     height: 220px;
-    object-fit: cover;
-    /* Recorta la imagen para llenar el espacio sin deformar */
-    border-radius: 15px;
-    margin-bottom: 15px;
+    /* Altura controlada (antes probamos 350, ahora bajamos a 220) */
+    width: auto;
+    /* El ancho se ajusta solo (no forzamos el 100%) */
+    max-width: 100%;
+    /* Pero que nunca se salga de la tarjeta */
+
+    /* 2. NITIDEZ Y AJUSTE */
+    object-fit: contain;
+    /* Muestra la botella ENTERA sin recortar ni hacer zoom */
+
+    /* 3. CENTRADO */
+    display: block;
+    /* Necesario para centrar */
+    margin: 0 auto 15px auto;
+    /* Centrado horizontal y espacio abajo */
+
+    /* 4. DETALLES EXTRA */
+    filter: drop-shadow(0 5px 5px rgba(0, 0, 0, 0.1));
+    /* Sombra suave a la botella, no al cuadro */
+    border-radius: 10px;
 }
 
 .info-producto h2 {
