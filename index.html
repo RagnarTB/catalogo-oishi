@@ -64,40 +64,35 @@
     </div>
 
     <script>
-        // CONFIGURACIÓN
+        // --- CONFIGURACIÓN ---
         const hojaCalculoURL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR74fYnG1pIpcUOnBBJmKvLL7GBq1LweLX7K-y-KVyV9EqnJQeGos8-7Hj5g_KdeS3j2t4K6C11whzH/pub?output=csv";
-        const numeroTia = "51957732651"; // <--- TU NÚMERO AQUÍ
+        const numeroTia = "51957732651";
 
         let carrito = [];
 
-        // 1. Cargar Productos
+        // 1. Cargar Productos (Lógica Corregida)
         fetch(hojaCalculoURL)
             .then(res => res.text())
             .then(texto => {
                 const filas = texto.split('\n').slice(1);
                 const contenedor = document.getElementById('catalogo');
-                contenedor.innerHTML = ""; // Limpiar mensaje de carga
+                contenedor.innerHTML = "";
 
                 filas.forEach(fila => {
-                    // --- CAMBIO IMPORTANTE: PARSER CSV ROBUSTO ---
-                    // Esto permite comas dentro de las descripciones si están entre comillas
-                    const columnas = fila.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
+                    // EXPRESIÓN REGULAR CORREGIDA:
+                    // Separa por comas, PERO ignora las comas que estén dentro de comillas "".
+                    // Esto permite textos con espacios y descripciones largas sin romperse.
+                    const columnas = fila.split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/);
 
-                    if (!columnas || columnas.length < 4) return; // Si la fila está incompleta, la saltamos
+                    if (!columnas || columnas.length < 4) return;
 
-                    // Limpiamos comillas extra que Google Sheets a veces pone
+                    // Limpiamos comillas extra y espacios
                     const nombre = columnas[0].replace(/^"|"$/g, '').trim();
                     const desc = columnas[1].replace(/^"|"$/g, '').trim();
                     const precioStr = columnas[2].replace(/^"|"$/g, '').trim();
                     let img = columnas[3].replace(/^"|"$/g, '').trim();
 
-                    // TRUCO EXTRA: Si el link viene sin https, intentamos arreglarlo (opcional pero útil)
-                    if (img && !img.startsWith('http')) {
-                        // Asumimos que es un enlace roto o vacío, dejamos que el 'onerror' del HTML actúe después
-                    }
-
                     const precio = parseFloat(precioStr);
-                    // ---------------------------------------------
 
                     if (nombre && !isNaN(precio)) {
                         const tarjeta = `
@@ -132,8 +127,6 @@
                 carrito.push({ nombre, precio, cantidad: 1 });
             }
             actualizarUI();
-
-            // Abrir el carrito automáticamente al agregar (opcional, buena UX)
             mostrarSidebar(true);
         }
 
@@ -147,12 +140,11 @@
             actualizarUI();
         }
 
-        // 3. Actualizar UI (Sidebar y Badge)
+        // 3. Actualizar UI
         function actualizarUI() {
             const totalItems = carrito.reduce((sum, i) => sum + i.cantidad, 0);
             const totalPrecio = carrito.reduce((sum, i) => sum + (i.precio * i.cantidad), 0);
 
-            // Actualizar Badge del botón flotante
             const badge = document.getElementById('badge-count');
             if (totalItems > 0) {
                 badge.style.display = 'flex';
@@ -161,9 +153,7 @@
                 badge.style.display = 'none';
             }
 
-            // Actualizar Lista en Sidebar
             const listaHTML = document.getElementById('lista-carrito-items');
-
             if (carrito.length === 0) {
                 listaHTML.innerHTML = '<div class="carrito-vacio">Tu canasta está vacía 🍃</div>';
                 document.getElementById('sidebar-total').innerText = "S/ 0.00";
@@ -187,16 +177,12 @@
                 </div>
             `;
             });
-
             document.getElementById('sidebar-total').innerText = `S/ ${totalPrecio.toFixed(2)}`;
         }
 
-        // 4. Funciones de Interfaz (Mostrar/Ocultar Sidebar)
+        // 4. Funciones de Interfaz
         function toggleCarrito() {
             const sidebar = document.getElementById('sidebar');
-            const overlay = document.getElementById('overlay');
-
-            // Toggle clase 'active'
             if (sidebar.classList.contains('active')) {
                 mostrarSidebar(false);
             } else {
@@ -223,7 +209,6 @@
 
         function enviarPedido() {
             if (carrito.length === 0) return alert("Agrega productos primero :)");
-
             let mensaje = "Hola Oishi, este es mi pedido:%0A%0A";
             carrito.forEach(item => {
                 mensaje += `- *${item.cantidad}x* ${item.nombre} (S/ ${(item.precio * item.cantidad).toFixed(2)})%0A`;
